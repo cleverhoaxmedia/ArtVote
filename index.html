@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Fan Art Faves — Vote!</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<!-- ============ HEADER ============ -->
+<header class="topbar">
+  <button id="menuBtn" class="menu-btn" aria-label="Open menu" aria-expanded="false">
+    <span></span><span></span><span></span>
+  </button>
+  <div class="topbar-titles">
+    <h1 id="eventTitle">Fan Art Faves</h1>
+    <p id="contestLabel" class="contest-label">Still Art Contest</p>
+  </div>
+  <div id="statusPill" class="status-pill" hidden>Voting closed</div>
+</header>
+
+<!-- ============ DRAWER (hamburger menu) ============ -->
+<div id="drawerOverlay" class="drawer-overlay" hidden></div>
+<nav id="drawer" class="drawer" aria-label="Menu" hidden>
+  <h2>Contests</h2>
+  <button class="drawer-item" data-contest="still">
+    <span class="drawer-emoji">🖼️</span>
+    <span class="drawer-text"><strong>Still Art</strong><small id="stillStatus">—</small></span>
+  </button>
+  <button class="drawer-item" data-contest="video">
+    <span class="drawer-emoji">🎬</span>
+    <span class="drawer-text"><strong>Video</strong><small id="videoStatus">—</small></span>
+  </button>
+  <div class="drawer-footer">
+    <p>Pick your Top 3 in each contest.<br>🤩 = 3 pts · 😀 = 2 pts · 🙂 = 1 pt</p>
+  </div>
+  <button id="adminBtn" class="admin-link">ADMIN</button>
+</nav>
+
+<!-- ============ MAIN ============ -->
+<main id="gallery" class="gallery" aria-live="polite">
+  <!-- entry cards injected by app.js -->
+</main>
+
+<!-- Voted / closed banners -->
+<div id="banner" class="banner" hidden></div>
+
+<!-- ============ SLOT BAR (the ballot) ============ -->
+<div id="slotbarWrap" class="slotbar-wrap">
+  <div class="chips-row">
+    <button id="editPicks" class="chip" hidden>✏️ Change picks</button>
+    <button id="clearPicks" class="chip chip-clear" hidden>🧹 Clear all</button>
+  </div>
+  <div id="slotbar" class="slotbar" role="toolbar" aria-label="Your top 3 picks">
+    <button class="slot slot-wow"  data-slot="first"  aria-pressed="false">
+      <span class="slot-emoji">🤩</span>
+      <span class="slot-label">WOW!<small>3 pts</small></span>
+      <span class="slot-pick" hidden></span>
+    </button>
+    <button class="slot slot-cool" data-slot="second" aria-pressed="false">
+      <span class="slot-emoji">😀</span>
+      <span class="slot-label">Cool!<small>2 pts</small></span>
+      <span class="slot-pick" hidden></span>
+    </button>
+    <button class="slot slot-nice" data-slot="third"  aria-pressed="false">
+      <span class="slot-emoji">🙂</span>
+      <span class="slot-label">Nice!<small>1 pt</small></span>
+      <span class="slot-pick" hidden></span>
+    </button>
+    <button id="submitBtn" class="submit-btn">Cast my votes! 🎉</button>
+  </div>
+</div>
+
+<div id="toast" class="toast" hidden></div>
+
+<!-- ============ LIGHTBOX (hold an entry to expand) ============ -->
+<div id="lightbox" class="lightbox" hidden>
+  <img id="lightboxImg" src="" alt="" />
+  <p id="lightboxCap" class="lightbox-cap"></p>
+  <p class="lightbox-hint">Tap anywhere to close</p>
+</div>
+
+<script src="firebase-config.js"></script>
+<script src="entries.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
