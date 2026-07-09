@@ -36,7 +36,11 @@ immediately — even by just opening `index.html` locally.
      match /databases/{database}/documents {
        match /config/{doc} { allow read: if true; }
        match /ballots/{doc} {
-         allow create: if true;
+         allow create: if
+           (request.resource.data.contest == "still" &&
+            get(/databases/$(database)/documents/config/flags).data.stillOpen == true) ||
+           (request.resource.data.contest == "video" &&
+            get(/databases/$(database)/documents/config/flags).data.videoOpen == true);
          allow read: if true;   // needed by the ADMIN results screen; see note below
        }
      }
@@ -46,9 +50,11 @@ immediately — even by just opening `index.html` locally.
 4. In Firestore, create the control document:
    - Collection `config` → Document ID `flags` → fields
      `stillOpen` (boolean) and `videoOpen` (boolean).
-   - **This is your open/close switch.** Flip these booleans in the console
-     (works fine from your phone) to open or close each contest. Voters see
-     the change on their next page load.
+   - Set both fields to `false` while you are setting up. **This is your manual
+     open/close switch.** Flip either boolean to `true` in the console (works
+     fine from your phone) to open voting for that contest. Guests can still
+     browse entries while voting is closed. Voters see the change on their next
+     page load.
 
 That's the whole Firebase setup — **no Storage needed** (it now requires a paid
 plan, so images live on GitHub instead; see below).
@@ -93,6 +99,27 @@ caches the published CSV briefly).
 > by row order, reordering or deleting rows *after* votes are cast would shift the
 > numbers and scramble the tally. Add a `num` column if you want numbers locked.
 
+### Video entries — getting a thumbnail
+
+A video row needs a **thumbnail** in the `image` column and the video link in the
+`watch` column. Thumbnails are done by hand; the quickest source per platform:
+
+| Platform | Thumbnail URL to paste in `image` |
+|---|---|
+| **YouTube** | `https://img.youtube.com/vi/VIDEO_ID/hqdefault.jpg` |
+| **Dailymotion** | `https://www.dailymotion.com/thumbnail/video/VIDEO_ID` |
+| **Vimeo** | No official static URL — use `https://vumbnail.com/VIDEO_ID.jpg` (free third-party) or the screenshot method below |
+| **Facebook** | No auto option — use the screenshot method below |
+
+- **VIDEO_ID** is the code in the video's URL: YouTube `watch?v=**abc123**` (or
+  `youtu.be/**abc123**`), Dailymotion `/video/**x9abc**`, Vimeo `vimeo.com/**123456789**`.
+- **Screenshot method (works for anything):** grab a frame of the video, save it
+  into the `video/` folder in the repo, and put that path (e.g. `video/entry3.jpg`)
+  in the `image` column. Bulletproof and platform-agnostic.
+
+Thumbnails are shown as squares (center-cropped), so a roughly centered frame reads
+best.
+
 ## 3. Deploy on GitHub Pages
 
 1. Create a repo and push these files to the root.
@@ -109,6 +136,19 @@ caches the published CSV briefly).
 - With all three slots filled, the bar morphs into **Cast my votes!**
   ("✏️ Change picks" reopens the tabs).
 - One vote per contest per device (browser localStorage).
+
+## Clearing votes
+
+Ballots are cleared from the **Firebase console** (there's no delete button in the
+app, on purpose — that would require making ballots publicly deletable):
+
+1. Firestore → **Data** → click the **`ballots`** collection.
+2. Open the **⋮** menu next to the collection name → **Delete collection** →
+   confirm. This removes every ballot.
+
+Do this to wipe **test votes before the event**. Note: each device also remembers
+it already voted (browser localStorage), so to re-vote for testing on the same
+phone, clear that site's browsing data too.
 
 ## Prototype caveats (revisit before the real event)
 

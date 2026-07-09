@@ -23,22 +23,25 @@
   --ink:       var(--navy);
   --ink-soft:  var(--muted);
   --card:      #FFFFFF;
-  --wow:       #FFB300;  /* 🤩 3 pts */
-  --wow-soft:  var(--pink-light);
-  --cool:      #45C4F9;  /* 😀 2 pts */
-  --cool-soft: var(--blue-light);
-  --nice:      #6FCF7C;  /* 🙂 1 pt  */
-  --nice-soft: var(--teal-light);
+  --gold:      #f5b82e;
+  --gold-soft: #fff2c2;
+  --gold-dark: #9a6700;
+  --silver:    #c9d2dc;
+  --silver-soft:#eef2f6;
+  --silver-dark:#5f6f80;
+  --bronze:    #c77b38;
+  --bronze-soft:#f7dfc9;
+  --bronze-dark:#824414;
+  --wow:       var(--gold);    /* 🤩 3 pts */
+  --wow-soft:  var(--gold-soft);
+  --cool:      var(--silver);  /* 😀 2 pts */
+  --cool-soft: var(--silver-soft);
+  --nice:      var(--bronze);  /* 🙂 1 pt  */
+  --nice-soft: var(--bronze-soft);
   --cta:       var(--pink);
   --radius:    20px;
   --bar-h:     72px;
   --shadow:    0 8px 22px rgba(22, 15, 59, 0.10);
-}
-
-:root {
-  --wow: var(--pink);
-  --cool: var(--blue);
-  --nice: var(--teal);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -288,14 +291,14 @@ button { font: inherit; color: inherit; border: none; background: none; cursor: 
 
 .expand-btn,
 .play-mark {
-  position: absolute; top: 8px; right: 8px;
-  width: 34px; height: 34px; border-radius: 999px;
+  position: absolute; top: 11px; right: 11px;
+  width: 40px; height: 40px; border-radius: 999px;
   display: flex; align-items: center; justify-content: center;
-  background: rgba(255,255,255,0.94);
+  background: #fff;
   color: var(--navy);
-  border: 1.5px solid rgba(22, 15, 59, 0.16);
-  box-shadow: 0 4px 12px rgba(22, 15, 59, 0.16);
-  font-size: 1rem; font-weight: 900;
+  border: 2px solid rgba(22, 15, 59, 0.12);
+  box-shadow: 0 5px 14px rgba(22, 15, 59, 0.22);
+  font-size: 1.1rem; font-weight: 900;
   line-height: 1;
 }
 .expand-btn:active,
@@ -378,6 +381,7 @@ button { font: inherit; color: inherit; border: none; background: none; cursor: 
 
 .slot {
   flex: 1 1 0;
+  min-width: 0;
   display: flex; align-items: center; justify-content: center; gap: 8px;
   border-radius: 22px;
   background: var(--card);
@@ -388,6 +392,7 @@ button { font: inherit; color: inherit; border: none; background: none; cursor: 
               transform 0.15s ease;
   border: 1.5px solid var(--border);
   border-bottom: 5px solid rgba(22,15,59,0.12);
+  padding: 0 8px;
 }
 .slot:active { transform: scale(0.96); }
 .slot-emoji { font-size: 1.8rem; line-height: 1; }
@@ -408,23 +413,65 @@ button { font: inherit; color: inherit; border: none; background: none; cursor: 
   padding: 3px 9px; border-radius: 999px; white-space: nowrap;
 }
 
+.slot-wow {
+  background: linear-gradient(180deg, #fff5cf 0%, var(--gold) 100%);
+  border-color: #d99708;
+  border-bottom-color: var(--gold-dark);
+}
+.slot-cool {
+  background: linear-gradient(180deg, #f7f9fb 0%, var(--silver) 100%);
+  border-color: #aab6c2;
+  border-bottom-color: var(--silver-dark);
+}
+.slot-nice {
+  background: linear-gradient(180deg, #f9e4cf 0%, var(--bronze) 100%);
+  border-color: #a75f24;
+  border-bottom-color: var(--bronze-dark);
+}
+.slot-wow,
+.slot-cool,
+.slot-nice {
+  color: var(--navy);
+}
+.slot-wow .slot-label small,
+.slot-cool .slot-label small,
+.slot-nice .slot-label small {
+  color: rgba(22, 15, 59, 0.62);
+}
+
 /* Armed: the tapped tab stretches, siblings squeeze to emoji-only */
 .slotbar.has-armed .slot        { flex-grow: 1; }
 .slotbar.has-armed .slot .slot-label { opacity: 0; max-width: 0; }
 .slotbar.has-armed .slot.armed  { flex-grow: 3.2; }
 .slotbar.has-armed .slot.armed .slot-label { opacity: 1; max-width: 90px; }
 
-.slot.armed.slot-wow  { background: var(--wow); color: #fff; border-color: var(--pink-dark); box-shadow: 0 8px 22px rgba(212,25,122,0.32); }
-.slot.armed.slot-cool { background: var(--cool); color: #fff; border-color: var(--blue-dark); box-shadow: 0 8px 22px rgba(29,92,184,0.30); }
-.slot.armed.slot-nice { background: var(--nice); color: var(--navy); border-color: var(--teal-dark); box-shadow: 0 8px 22px rgba(10,181,192,0.28); }
+.slot.armed.slot-wow  { background: linear-gradient(180deg, #ffdf6b 0%, var(--gold) 100%); color: var(--navy); border-color: var(--gold-dark); box-shadow: 0 8px 22px rgba(245,184,46,0.34); }
+.slot.armed.slot-cool { background: linear-gradient(180deg, #f4f7fa 0%, var(--silver) 100%); color: var(--navy); border-color: var(--silver-dark); box-shadow: 0 8px 22px rgba(95,111,128,0.28); }
+.slot.armed.slot-nice { background: linear-gradient(180deg, #e3a66f 0%, var(--bronze) 100%); color: #fff; border-color: var(--bronze-dark); box-shadow: 0 8px 22px rgba(199,123,56,0.34); }
 .slot.armed.slot-wow .slot-label small,
-.slot.armed.slot-cool .slot-label small { color: rgba(255,255,255,0.78); }
-.slot.armed.slot-nice .slot-label small { color: rgba(22,15,59,0.68); }
+.slot.armed.slot-cool .slot-label small { color: rgba(22,15,59,0.68); }
+.slot.armed.slot-nice .slot-label small { color: rgba(255,255,255,0.78); }
 
 /* Filled (has a pick) but not armed: soft tint */
-.slot.filled.slot-wow:not(.armed)  { background: var(--wow-soft); border-color: var(--pink-mid); }
-.slot.filled.slot-cool:not(.armed) { background: var(--cool-soft); border-color: var(--blue-mid); }
-.slot.filled.slot-nice:not(.armed) { background: var(--nice-soft); border-color: var(--teal-mid); }
+.slot.filled.slot-wow:not(.armed)  { background: linear-gradient(180deg, var(--gold-soft) 0%, #ffd85d 100%); border-color: var(--gold-dark); }
+.slot.filled.slot-cool:not(.armed) { background: linear-gradient(180deg, var(--silver-soft) 0%, #bbc7d3 100%); border-color: var(--silver-dark); }
+.slot.filled.slot-nice:not(.armed) { background: linear-gradient(180deg, var(--bronze-soft) 0%, #d28a47 100%); border-color: var(--bronze-dark); }
+
+@media (max-width: 430px) {
+  .slotbar:not(.has-armed):not(.complete) .slot {
+    gap: 4px;
+  }
+  .slotbar:not(.has-armed):not(.complete) .slot .slot-label {
+    opacity: 0;
+    max-width: 0;
+  }
+  .slotbar:not(.has-armed):not(.complete) .slot-emoji {
+    font-size: 2rem;
+  }
+  .slotbar.has-armed .slot.armed {
+    flex-grow: 3.8;
+  }
+}
 
 /* Complete: slots collapse, bar morphs into Submit */
 .slotbar.complete .slot {

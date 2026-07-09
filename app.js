@@ -35,7 +35,9 @@ let entries = [];                 // [{num, imgUrl, videoUrl?, title, author}]
 let sheetRowsCache = null;        // parsed Google Sheet rows (fetched once)
 let picks   = { first: null, second: null, third: null }; // entry nums
 let armed   = null;               // "first" | "second" | "third" | null
-let votingOpen = { still: true, video: true };
+let votingOpen = DEMO_MODE
+  ? { still: true, video: true }
+  : { still: false, video: false };
 let db = null;
 let adminUnlocked = false;
 
@@ -71,8 +73,8 @@ async function loadFlags() {
     const snap = await db.getDoc(db.doc(db.inst, "config", "flags"));
     if (snap.exists()) {
       const d = snap.data();
-      votingOpen.still = d.stillOpen !== false;
-      votingOpen.video = d.videoOpen !== false;
+      votingOpen.still = d.stillOpen === true;
+      votingOpen.video = d.videoOpen === true;
     }
   } catch (e) {
     console.error("Could not read voting flags:", e);
