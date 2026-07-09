@@ -279,6 +279,19 @@ button { font: inherit; color: inherit; border: none; background: none; cursor: 
 .entry.picked-second { outline-color: var(--cool); }
 .entry.picked-third  { outline-color: var(--nice); }
 
+/* Title + author caption under each entry image */
+.entry-caption {
+  display: flex; flex-direction: column; gap: 1px;
+  padding: 8px 10px 10px;
+}
+.entry-title {
+  font-family: 'Fredoka', 'Nunito', sans-serif; font-weight: 600;
+  font-size: 0.9rem; color: var(--ink); line-height: 1.2;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.entry-author { font-size: 0.74rem; color: var(--ink-soft); font-weight: 700; }
+
 .watch-btn {
   display: flex; align-items: center; justify-content: center; gap: 6px;
   width: calc(100% - 16px); margin: 8px;

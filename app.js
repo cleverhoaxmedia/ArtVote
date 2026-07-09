@@ -6,6 +6,7 @@
 const firebaseConfig = window.FANVOTE_FIREBASE_CONFIG;
 const EVENT_NAME = window.FANVOTE_EVENT_NAME;
 const ADMIN_PASSWORD = window.FANVOTE_ADMIN_PASSWORD || "admin";
+const SHEET_CSV_URL = window.FANVOTE_SHEET_CSV_URL || "";
 
 const DEMO_MODE = firebaseConfig.apiKey === "PASTE_YOUR_API_KEY";
 
@@ -21,9 +22,17 @@ const CONTESTS = {
 };
 const ADMIN_POINTS = { first: 3, second: 2, third: 1 };
 
+// ---------------- Utilities ----------------
+// Escape user-supplied text (sheet titles/authors/URLs) before it goes into HTML.
+const esc = (s) =>
+  String(s ?? "").replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])
+  );
+
 // ---------------- State ----------------
 let contest = "still";
-let entries = [];                 // [{num, imgUrl, videoUrl?}]
+let entries = [];                 // [{num, imgUrl, videoUrl?, title, author}]
+let sheetRowsCache = null;        // parsed Google Sheet rows (fetched once)
 let picks   = { first: null, second: null, third: null }; // entry nums
 let armed   = null;               // "first" | "second" | "third" | null
 let votingOpen = { still: true, video: true };
@@ -70,14 +79,83 @@ async function loadFlags() {
   }
 }
 
+// Minimal CSV parser: handles quoted fields, embedded commas/newlines, "" escapes.
+function parseCSV(text) {
+  const rows = [];
+  let row = [], field = "", inQ = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (inQ) {
+      if (ch === '"') {
+        if (text[i + 1] === '"') { field += '"'; i++; }
+        else inQ = false;
+      } else field += ch;
+    } else if (ch === '"') inQ = true;
+    else if (ch === ",") { row.push(field); field = ""; }
+    else if (ch === "\n") { row.push(field); rows.push(row); row = []; field = ""; }
+    else if (ch !== "\r") field += ch;
+  }
+  if (field.length || row.length) { row.push(field); rows.push(row); }
+  return rows;
+}
+
+// A GitHub "blob" URL (github.com/owner/repo/blob/ref/path) serves an HTML page,
+// not the image — rewrite it to the raw.githubusercontent.com form that does.
+function toRawUrl(url) {
+  const m = url.match(/^https?:\/\/github\.com\/([^/]+)\/([^/]+)\/blob\/(.+)$/i);
+  return m ? `https://raw.githubusercontent.com/${m[1]}/${m[2]}/${m[3]}` : url;
+}
+
+// Fetch the published Google Sheet (once) and turn it into entry rows.
+async function fetchSheetRows() {
+  if (sheetRowsCache) return sheetRowsCache;
+  const res = await fetch(SHEET_CSV_URL);
+  if (!res.ok) throw new Error("Sheet fetch failed: " + res.status);
+  const rows = parseCSV(await res.text()).filter((r) => r.some((c) => c.trim() !== ""));
+  if (!rows.length) return (sheetRowsCache = []);
+  const headers = rows[0].map((h) => h.trim().toLowerCase());
+  const col = (...names) => {           // first matching header wins (accepts aliases)
+    for (const n of names) { const i = headers.indexOf(n); if (i >= 0) return i; }
+    return -1;
+  };
+  const ci = {
+    contest: col("contest"),
+    num:     col("num", "no", "number", "#"),
+    title:   col("title", "name"),
+    author:  col("author", "artist", "by"),
+    image:   col("image", "link", "url", "img", "file"),
+    watch:   col("watch", "video", "youtube"),
+  };
+  const cell = (r, i) => (i >= 0 && r[i] != null ? r[i].trim() : "");
+  const seq = {};                       // per-contest counter for auto-numbering
+  sheetRowsCache = rows.slice(1).map((r) => {
+    const contest = cell(r, ci.contest).toLowerCase();
+    const image = toRawUrl(cell(r, ci.image));
+    let num = parseInt(cell(r, ci.num), 10);
+    if (Number.isNaN(num) && image) {   // no "num" column → number by order within each contest
+      seq[contest] = (seq[contest] || 0) + 1;
+      num = seq[contest];
+    }
+    return {
+      contest, num, image,
+      title: cell(r, ci.title),
+      author: cell(r, ci.author),
+      watch: cell(r, ci.watch),
+    };
+  });
+  return sheetRowsCache;
+}
+
 async function loadEntries(c) {
   if (DEMO_MODE) return demoEntries(c);
-  // Entries are hosted on GitHub, listed in entries.js (window.FANVOTE_ENTRIES).
-  // Each entry: { num, img: "still/1.jpg", watch?: "https://..." }
-  const manifest = (window.FANVOTE_ENTRIES && window.FANVOTE_ENTRIES[c]) || [];
-  return manifest
-    .filter((e) => e && e.num != null && e.img)
-    .map((e) => ({ num: e.num, imgUrl: e.img, videoUrl: e.watch || null }))
+  if (!SHEET_CSV_URL || SHEET_CSV_URL.startsWith("PASTE_")) return [];
+  const rows = await fetchSheetRows();
+  return rows
+    .filter((r) => r.contest === c && r.image && !Number.isNaN(r.num))
+    .map((r) => ({
+      num: r.num, imgUrl: r.image, title: r.title,
+      author: r.author, videoUrl: r.watch || null,
+    }))
     .sort((a, b) => a.num - b.num);
 }
 
@@ -111,6 +189,14 @@ async function loadAdminResults() {
 }
 
 // ---------------- Demo data ----------------
+const DEMO_TITLES = [
+  "Sunset Dragon", "Neon Alley", "Quiet Forest", "Cosmic Cat",
+  "Paper Robots", "Tidal Bloom", "Midnight Market", "Golden Hour",
+];
+const DEMO_AUTHORS = [
+  "Alex R.", "Sam K.", "Jordan P.", "Riley M.",
+  "Casey T.", "Devon L.", "Morgan W.", "Quinn B.",
+];
 function demoEntries(c) {
   const hues = [8, 42, 95, 160, 200, 250, 290, 330];
   return hues.map((h, i) => {
@@ -124,6 +210,8 @@ function demoEntries(c) {
     return {
       num,
       imgUrl: "data:image/svg+xml," + encodeURIComponent(svg),
+      title: DEMO_TITLES[i],
+      author: DEMO_AUTHORS[i],
       videoUrl: c === "video" ? "https://example.com/watch/" + num : null,
     };
   });
@@ -165,10 +253,14 @@ function renderGallery() {
     if (slotOf) card.classList.add(`picked-${slotOf}`);
 
     card.innerHTML = `
-      <img src="${e.imgUrl}" alt="Entry ${e.num}" loading="lazy" />
+      <img src="${esc(e.imgUrl)}" alt="${esc(e.title || "Entry " + e.num)}" loading="lazy" />
       <span class="entry-num">#${e.num}</span>
       ${slotOf ? `<span class="entry-badge">${SLOT_META[slotOf].emoji}</span>` : ""}
-      ${e.videoUrl ? `<a class="watch-btn" href="${e.videoUrl}" target="_blank" rel="noopener">▶️ Click to watch!</a>` : ""}
+      <div class="entry-caption">
+        <span class="entry-title">${esc(e.title || "Untitled")}</span>
+        ${e.author ? `<span class="entry-author">by ${esc(e.author)}</span>` : ""}
+      </div>
+      ${e.videoUrl ? `<a class="watch-btn" href="${esc(e.videoUrl)}" target="_blank" rel="noopener">▶️ Click to watch!</a>` : ""}
     `;
     card.addEventListener("click", (ev) => {
       if (ev.target.closest(".watch-btn")) return; // link, not a vote tap
@@ -397,8 +489,10 @@ function attachLongPress(card, entry) {
 
 function openLightbox(entry) {
   $("lightboxImg").src = entry.imgUrl;
-  $("lightboxImg").alt = "Entry " + entry.num + " (enlarged)";
-  $("lightboxCap").textContent = "Entry #" + entry.num;
+  $("lightboxImg").alt = (entry.title || "Entry " + entry.num) + " (enlarged)";
+  $("lightboxCap").textContent =
+    `#${entry.num} · ${entry.title || "Untitled"}` +
+    (entry.author ? ` — by ${entry.author}` : "");
   $("lightbox").hidden = false;
 }
 function closeLightbox() { $("lightbox").hidden = true; }
@@ -465,7 +559,7 @@ async function boot() {
     entries = await loadEntries(contest);
   } catch (e) {
     console.error(e);
-    gallery.innerHTML = `<p class="gallery-note">Couldn't load entries. Check the Firebase setup in <code>firebase-config.js</code>.</p>`;
+    gallery.innerHTML = `<p class="gallery-note">Couldn't load entries. Check the Google Sheet link and Firebase setup in <code>firebase-config.js</code>.</p>`;
     return;
   }
   renderAll();

@@ -8,12 +8,13 @@ Points: 🤩 WOW! = 3 · 😀 Cool! = 2 · 🙂 Nice! = 1.
 | File | Purpose |
 |---|---|
 | `index.html` / `styles.css` / `app.js` | The voting app (results screen is built in — see below) |
-| `firebase-config.js` | Your Firebase config + admin password |
-| `entries.js` | **The contest entry list** — add each approved entry here |
+| `firebase-config.js` | Your Firebase config, admin password, and Google Sheet link |
 | `still/` · `video/` | The entry images, hosted right in the repo |
+| *(a Google Sheet)* | **The contest entry list** — title, author, image link per entry |
 
-**Architecture:** the frontend *and the images* live on GitHub; Firebase (Firestore)
-only stores the ballots and the open/close switches. No Firebase Storage is needed.
+**Architecture:** the frontend and images live on GitHub; a **Google Sheet** holds
+the entry list (title/author/image per row); Firebase (Firestore) stores the
+ballots and the open/close switches. No Firebase Storage is needed.
 
 **Seeing results:** there's no separate admin page. Open the app, tap the ☰ menu,
 tap **ADMIN** at the bottom, and enter the admin password (set in
@@ -52,31 +53,45 @@ immediately — even by just opening `index.html` locally.
 That's the whole Firebase setup — **no Storage needed** (it now requires a paid
 plan, so images live on GitHub instead; see below).
 
-## 2. Adding contest entries
+## 2. Adding contest entries (Google Sheet)
 
-Entries live in `entries.js` and the images sit in the `still/` and `video/`
-folders — all in this repo. Adding an entry to `entries.js` *is* the approval
-step: art only appears for voting once you list it there.
+The entry list lives in a **Google Sheet** so you can add art + attribution
+without touching code. Adding a row *is* the approval step — art only appears for
+voting once it's a row in the sheet.
 
-1. Drop the image into the `still/` or `video/` folder (for video, use the
-   **thumbnail** image). JPG, PNG, GIF, WEBP, and SVG all work; square looks best.
-2. Add a line to `entries.js`:
+**One-time setup:**
 
-   ```js
-   window.FANVOTE_ENTRIES = {
-     still: [
-       { num: 1, img: "still/1.jpg" },
-       { num: 2, img: "still/dragon.png" },   // filename is up to you; "num" is the card #
-     ],
-     video: [
-       { num: 1, img: "video/1.jpg", watch: "https://youtube.com/watch?v=..." },
-     ],
-   };
-   ```
+1. Make a Google Sheet with a header row and these columns (order and extra
+   columns don't matter; headers are matched by name):
 
-   `watch` is optional — any video entry that has one gets a "▶️ Click to watch!"
-   button.
-3. Commit and push. The new entries appear the next time voters load the page.
+   | contest | title | author | image | num | watch |
+   |---|---|---|---|---|---|
+   | still | Sunset Dragon | Alex R. | still/1.jpg | | |
+   | video | My Animation | Jamie L. | video/1.jpg | | https://youtube.com/... |
+
+   - **contest** — `still` or `video`.
+   - **title / author** — shown on each card.
+   - **image** — where the picture is (see below). The column may also be named
+     `link`, `url`, or `img`.
+   - **num** *(optional)* — the number shown on the card. Leave it out and entries
+     are auto-numbered by row order within each contest.
+   - **watch** *(video only, optional)* — link for the "▶️ Click to watch!" button.
+2. **File → Share → Publish to web → (the entries tab) → CSV → Publish.** Copy the
+   link it gives you into `FANVOTE_SHEET_CSV_URL` in `firebase-config.js`.
+
+**Adding an entry:** upload the image to the `still/` or `video/` folder in this
+repo, then add a row to the sheet. New entries appear within a few minutes (Google
+caches the published CSV briefly).
+
+**What to put in the `image` column** — easiest is a **repo path** like
+`still/1.jpg` (works because the images ship with the app). Full URLs work too, but:
+- A GitHub **`.../blob/...`** page URL is auto-corrected to the raw image for you.
+- A **Google Drive** share link will *not* work (it serves a page, not the file).
+- iPhone **HEIC** photos won't display in browsers — convert to JPG/PNG first.
+
+> **Before you open voting, finalize the list.** Since entries can be auto-numbered
+> by row order, reordering or deleting rows *after* votes are cast would shift the
+> numbers and scramble the tally. Add a `num` column if you want numbers locked.
 
 ## 3. Deploy on GitHub Pages
 
