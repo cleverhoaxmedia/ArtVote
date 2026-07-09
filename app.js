@@ -99,11 +99,51 @@ function parseCSV(text) {
   return rows;
 }
 
-// A GitHub "blob" URL (github.com/owner/repo/blob/ref/path) serves an HTML page,
-// not the image — rewrite it to the raw.githubusercontent.com form that does.
-function toRawUrl(url) {
-  const m = url.match(/^https?:\/\/github\.com\/([^/]+)\/([^/]+)\/blob\/(.+)$/i);
-  return m ? `https://raw.githubusercontent.com/${m[1]}/${m[2]}/${m[3]}` : url;
+// Some shared links point at web pages instead of raw image files. Normalize the
+// common ones so thumbnails can be used directly in <img src="...">.
+function youtubeId(url) {
+  return (
+    url.match(/[?&]v=([^&#]+)/i)?.[1] ||
+    url.match(/youtu\.be\/([^?&#/]+)/i)?.[1] ||
+    url.match(/youtube\.com\/shorts\/([^?&#/]+)/i)?.[1] ||
+    url.match(/youtube\.com\/embed\/([^?&#/]+)/i)?.[1] ||
+    ""
+  );
+}
+
+function dailymotionId(url) {
+  return url.match(/dailymotion\.com\/video\/([^_?&#/]+)/i)?.[1] || "";
+}
+
+function vimeoId(url) {
+  return url.match(/vimeo\.com\/(?:.*\/)?(\d+)/i)?.[1] || "";
+}
+
+function videoThumbnailUrl(url) {
+  const yt = youtubeId(url);
+  if (yt) return `https://img.youtube.com/vi/${encodeURIComponent(yt)}/hqdefault.jpg`;
+  const dm = dailymotionId(url);
+  if (dm) return `https://www.dailymotion.com/thumbnail/video/${encodeURIComponent(dm)}`;
+  const vi = vimeoId(url);
+  if (vi) return `https://vumbnail.com/${encodeURIComponent(vi)}.jpg`;
+  return "";
+}
+
+function normalizeImageUrl(url) {
+  url = String(url || "").trim();
+  if (!url) return "";
+  const videoThumb = videoThumbnailUrl(url);
+  if (videoThumb) return videoThumb;
+
+  const gh = url.match(/^https?:\/\/github\.com\/([^/]+)\/([^/]+)\/blob\/(.+)$/i);
+  if (gh) return `https://raw.githubusercontent.com/${gh[1]}/${gh[2]}/${gh[3]}`;
+
+  const driveId =
+    url.match(/drive\.google\.com\/file\/d\/([^/]+)/i)?.[1] ||
+    url.match(/[?&]id=([^&#]+)/i)?.[1];
+  if (driveId) return `https://drive.google.com/uc?export=view&id=${encodeURIComponent(driveId)}`;
+
+  return url;
 }
 
 // Fetch the published Google Sheet (once) and turn it into entry rows.
@@ -130,7 +170,9 @@ async function fetchSheetRows() {
   const seq = {};                       // per-contest counter for auto-numbering
   sheetRowsCache = rows.slice(1).map((r) => {
     const contest = cell(r, ci.contest).toLowerCase();
-    const image = toRawUrl(cell(r, ci.image));
+    const rawImage = cell(r, ci.image);
+    const rawWatch = cell(r, ci.watch);
+    const image = normalizeImageUrl(rawImage || rawWatch);
     let num = parseInt(cell(r, ci.num), 10);
     if (Number.isNaN(num) && image) {   // no "num" column → number by order within each contest
       seq[contest] = (seq[contest] || 0) + 1;
@@ -140,7 +182,7 @@ async function fetchSheetRows() {
       contest, num, image,
       title: cell(r, ci.title),
       author: cell(r, ci.author),
-      watch: cell(r, ci.watch),
+      watch: rawWatch || (videoThumbnailUrl(rawImage) ? rawImage : ""),
     };
   });
   return sheetRowsCache;
@@ -245,15 +287,27 @@ function renderGallery() {
   }
   const locked = hasVoted(contest) || !votingOpen[contest];
   for (const e of entries) {
-    const card = document.createElement("button");
+    const card = document.createElement("article");
     card.className = "entry" + (locked ? " locked" : "");
     card.dataset.num = e.num;
+    card.tabIndex = 0;
+    card.setAttribute("role", "button");
+    card.setAttribute("aria-label", `Select entry ${e.num}: ${e.title || "Untitled"}`);
 
     const slotOf = SLOTS.find((s) => picks[s] === e.num);
     if (slotOf) card.classList.add(`picked-${slotOf}`);
+    const mediaHtml = e.videoUrl
+      ? `<a class="entry-media video-link" href="${esc(e.videoUrl)}" target="_blank" rel="noopener" aria-label="Open video for entry ${e.num}">
+          <img src="${esc(e.imgUrl)}" alt="${esc(e.title || "Entry " + e.num)}" loading="lazy" />
+          <span class="play-mark" aria-hidden="true">▶</span>
+        </a>`
+      : `<div class="entry-media">
+          <img src="${esc(e.imgUrl)}" alt="${esc(e.title || "Entry " + e.num)}" loading="lazy" />
+          <button class="expand-btn" type="button" aria-label="Expand entry ${e.num}">⛶</button>
+        </div>`;
 
     card.innerHTML = `
-      <img src="${esc(e.imgUrl)}" alt="${esc(e.title || "Entry " + e.num)}" loading="lazy" />
+      ${mediaHtml}
       <span class="entry-num">#${e.num}</span>
       ${slotOf ? `<span class="entry-badge">${SLOT_META[slotOf].emoji}</span>` : ""}
       <div class="entry-caption">
@@ -262,12 +316,21 @@ function renderGallery() {
       </div>
       ${e.videoUrl ? `<a class="watch-btn" href="${esc(e.videoUrl)}" target="_blank" rel="noopener">▶️ Click to watch!</a>` : ""}
     `;
+    card.querySelector(".expand-btn")?.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      openLightbox(e);
+    });
     card.addEventListener("click", (ev) => {
-      if (ev.target.closest(".watch-btn")) return; // link, not a vote tap
-      if (suppressClick) { suppressClick = false; return; } // long-press just fired
+      if (ev.target.closest("a, button")) return; // link/expand, not a vote tap
       onEntryTap(e.num);
     });
-    attachLongPress(card, e);
+    card.addEventListener("keydown", (ev) => {
+      if (ev.target.closest("a, button")) return;
+      if (ev.key === "Enter" || ev.key === " ") {
+        ev.preventDefault();
+        onEntryTap(e.num);
+      }
+    });
     gallery.appendChild(card);
   }
 }
@@ -450,41 +513,6 @@ function onClearAll() {
   renderGallery();
   renderSlotbar();
   toast("Picks cleared — fresh start! 🧹");
-}
-
-// ---- Hold-to-expand (long-press an entry to preview it big) ----
-let suppressClick = false;
-let pressTimer = null;
-
-function attachLongPress(card, entry) {
-  let startX = 0, startY = 0;
-  const start = (ev) => {
-    const p = ev.touches ? ev.touches[0] : ev;
-    startX = p.clientX; startY = p.clientY;
-    pressTimer = setTimeout(() => {
-      pressTimer = null;
-      suppressClick = true;
-      openLightbox(entry);
-    }, 450);
-  };
-  const move = (ev) => {
-    if (!pressTimer) return;
-    const p = ev.touches ? ev.touches[0] : ev;
-    if (Math.abs(p.clientX - startX) > 10 || Math.abs(p.clientY - startY) > 10) {
-      clearTimeout(pressTimer); pressTimer = null; // scrolling, not holding
-    }
-  };
-  const cancel = () => { if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; } };
-
-  card.addEventListener("touchstart", start, { passive: true });
-  card.addEventListener("touchmove", move, { passive: true });
-  card.addEventListener("touchend", cancel);
-  card.addEventListener("touchcancel", cancel);
-  card.addEventListener("mousedown", start);
-  card.addEventListener("mousemove", move);
-  card.addEventListener("mouseup", cancel);
-  card.addEventListener("mouseleave", cancel);
-  card.addEventListener("contextmenu", (ev) => ev.preventDefault());
 }
 
 function openLightbox(entry) {

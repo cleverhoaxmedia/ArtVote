@@ -247,6 +247,7 @@ button { font: inherit; color: inherit; border: none; background: none; cursor: 
   padding: 0;
   display: block; width: 100%;
   border: 1.5px solid var(--border);
+  cursor: pointer;
 }
 .entry:active { transform: scale(0.97); }
 .entry.locked { cursor: default; }
@@ -257,6 +258,12 @@ button { font: inherit; color: inherit; border: none; background: none; cursor: 
   user-select: none;
 }
 
+.entry-media {
+  position: relative;
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
 .entry img {
   display: block; width: 100%; aspect-ratio: 1 / 1;
   object-fit: cover; background: var(--purple-light);
@@ -268,7 +275,7 @@ button { font: inherit; color: inherit; border: none; background: none; cursor: 
   font-size: 0.85rem; padding: 4px 10px; border-radius: 999px;
 }
 .entry-badge {
-  position: absolute; top: 8px; right: 8px;
+  position: absolute; top: 48px; right: 10px;
   font-size: 1.5rem;
   filter: drop-shadow(0 2px 3px rgba(0,0,0,0.25));
   animation: pop 0.25s ease;
@@ -278,6 +285,29 @@ button { font: inherit; color: inherit; border: none; background: none; cursor: 
 .entry.picked-first  { outline-color: var(--wow); }
 .entry.picked-second { outline-color: var(--cool); }
 .entry.picked-third  { outline-color: var(--nice); }
+
+.expand-btn,
+.play-mark {
+  position: absolute; top: 8px; right: 8px;
+  width: 34px; height: 34px; border-radius: 999px;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(255,255,255,0.94);
+  color: var(--navy);
+  border: 1.5px solid rgba(22, 15, 59, 0.16);
+  box-shadow: 0 4px 12px rgba(22, 15, 59, 0.16);
+  font-size: 1rem; font-weight: 900;
+  line-height: 1;
+}
+.expand-btn:active,
+.video-link:active .play-mark {
+  transform: scale(0.94);
+}
+.play-mark {
+  padding-left: 2px;
+  background: var(--blue);
+  color: #fff;
+  border-color: var(--blue-dark);
+}
 
 /* Title + author caption under each entry image */
 .entry-caption {
@@ -430,7 +460,7 @@ button { font: inherit; color: inherit; border: none; background: none; cursor: 
 }
 
 /* ============ A11y & motion ============ */
-button:focus-visible, a:focus-visible {
+button:focus-visible, a:focus-visible, .entry:focus-visible {
   outline: 3px solid var(--cta); outline-offset: 2px;
 }
 @media (prefers-reduced-motion: reduce) {
@@ -443,7 +473,7 @@ button:focus-visible, a:focus-visible {
   color: var(--ink-soft); padding: 40px 16px; line-height: 1.6;
 }
 
-/* ============ Lightbox (hold-to-expand) ============ */
+/* ============ Lightbox (expand view) ============ */
 .lightbox[hidden] { display: none; }
 .lightbox {
   position: fixed; inset: 0; z-index: 50;
