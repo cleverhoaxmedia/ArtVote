@@ -298,10 +298,10 @@ function renderGallery() {
 
     const slotOf = SLOTS.find((s) => picks[s] === e.num);
     if (slotOf) card.classList.add(`picked-${slotOf}`);
+    const linkDisabled = e.videoUrl && armed !== null;
     const mediaHtml = e.videoUrl
-      ? `<a class="entry-media video-link" href="${esc(e.videoUrl)}" target="_blank" rel="noopener" aria-label="Open video for entry ${e.num}">
+      ? `<a class="entry-media video-link${linkDisabled ? " link-disabled" : ""}" href="${esc(e.videoUrl)}" target="_blank" rel="noopener" aria-label="Open video for entry ${e.num}" aria-disabled="${linkDisabled ? "true" : "false"}">
           <img src="${esc(e.imgUrl)}" alt="${esc(e.title || "Entry " + e.num)}" loading="lazy" />
-          <span class="play-mark" aria-hidden="true">▶</span>
         </a>`
       : `<div class="entry-media">
           <img src="${esc(e.imgUrl)}" alt="${esc(e.title || "Entry " + e.num)}" loading="lazy" />
@@ -316,8 +316,14 @@ function renderGallery() {
         <span class="entry-title">${esc(e.title || "Untitled")}</span>
         ${e.author ? `<span class="entry-author">by ${esc(e.author)}</span>` : ""}
       </div>
-      ${e.videoUrl ? `<a class="watch-btn" href="${esc(e.videoUrl)}" target="_blank" rel="noopener">▶️ Click to watch!</a>` : ""}
+      ${e.videoUrl ? `<a class="watch-btn${linkDisabled ? " link-disabled" : ""}" href="${esc(e.videoUrl)}" target="_blank" rel="noopener" aria-disabled="${linkDisabled ? "true" : "false"}">${linkDisabled ? "Tap to pick this video" : "▶️ Click to watch!"}</a>` : ""}
     `;
+    card.querySelectorAll(".link-disabled").forEach((link) => {
+      link.addEventListener("click", (ev) => {
+        ev.preventDefault();
+        onEntryTap(e.num);
+      });
+    });
     card.querySelector(".expand-btn")?.addEventListener("click", (ev) => {
       ev.stopPropagation();
       openLightbox(e);

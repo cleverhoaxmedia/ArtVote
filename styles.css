@@ -289,8 +289,7 @@ button { font: inherit; color: inherit; border: none; background: none; cursor: 
 .entry.picked-second { outline-color: var(--cool); }
 .entry.picked-third  { outline-color: var(--nice); }
 
-.expand-btn,
-.play-mark {
+.expand-btn {
   position: absolute; top: 11px; right: 11px;
   width: 40px; height: 40px; border-radius: 999px;
   display: flex; align-items: center; justify-content: center;
@@ -301,15 +300,8 @@ button { font: inherit; color: inherit; border: none; background: none; cursor: 
   font-size: 1.1rem; font-weight: 900;
   line-height: 1;
 }
-.expand-btn:active,
-.video-link:active .play-mark {
+.expand-btn:active {
   transform: scale(0.94);
-}
-.play-mark {
-  padding-left: 2px;
-  background: var(--blue);
-  color: #fff;
-  border-color: var(--blue-dark);
 }
 
 /* Title + author caption under each entry image */
@@ -332,6 +324,14 @@ button { font: inherit; color: inherit; border: none; background: none; cursor: 
   background: var(--blue); color: #fff;
   font-weight: 800; font-size: 0.82rem;
   text-decoration: none;
+}
+.video-link.link-disabled {
+  cursor: pointer;
+}
+.watch-btn.link-disabled {
+  background: var(--purple-light);
+  color: var(--ink-soft);
+  border: 1.5px solid var(--border);
 }
 
 /* ============ Banner (voted / closed states) ============ */
