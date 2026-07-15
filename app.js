@@ -318,10 +318,13 @@ function renderGallery() {
       </div>
       ${e.videoUrl ? `<a class="watch-btn${linkDisabled ? " link-disabled" : ""}" href="${esc(e.videoUrl)}" target="_blank" rel="noopener" aria-disabled="${linkDisabled ? "true" : "false"}">${linkDisabled ? "Tap to pick this video" : "▶️ Click to watch!"}</a>` : ""}
     `;
-    card.querySelectorAll(".link-disabled").forEach((link) => {
+    card.querySelectorAll(".video-link, .watch-btn").forEach((link) => {
       link.addEventListener("click", (ev) => {
-        ev.preventDefault();
-        onEntryTap(e.num);
+        if (armed !== null) {
+          ev.preventDefault();
+          ev.stopPropagation();
+          onEntryTap(e.num);
+        }
       });
     });
     card.querySelector(".expand-btn")?.addEventListener("click", (ev) => {
@@ -475,6 +478,7 @@ async function renderAdminView() {
 function onSlotTap(slot) {
   if (hasVoted(contest) || !votingOpen[contest]) return;
   armed = armed === slot ? null : slot; // re-tap = disarm, picks untouched
+  renderGallery();
   renderSlotbar();
 }
 
