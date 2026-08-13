@@ -40,6 +40,7 @@ let votingOpen = DEMO_MODE
   : { still: false, video: false };
 let db = null;
 let adminUnlocked = false;
+let voteGen = 0;                  // round/generation from config/flags; a bump re-opens voting for every phone
 
 // ---------------- DOM ----------------
 const $ = (id) => document.getElementById(id);
@@ -75,6 +76,7 @@ async function loadFlags() {
       const d = snap.data();
       votingOpen.still = d.stillOpen === true;
       votingOpen.video = d.videoOpen === true;
+      voteGen = Number(d.gen) || 0;         // which round we're on; scopes each phone's vote-lock
     }
   } catch (e) {
     console.error("Could not read voting flags:", e);
@@ -264,7 +266,9 @@ function demoEntries(c) {
 // ============================================================
 // Local vote lock (one vote per device)
 // ============================================================
-const voteKey = (c) => `fanvote_voted_${c}`;
+// The vote-lock is scoped to the current round, so when the admin clears votes and bumps the
+// generation, every phone's old lock stops matching and voters can cast a fresh ballot.
+const voteKey = (c) => `fanvote_voted_${c}_g${voteGen}`;
 const hasVoted = (c) => !DEMO_MODE ? !!localStorage.getItem(voteKey(c)) : !!sessionVotes[c];
 const sessionVotes = {}; // demo-mode in-memory ballots
 
@@ -404,7 +408,22 @@ function renderChrome() {
 
 function renderAll() { renderChrome(); renderGallery(); renderSlotbar(); }
 
-function adminRowsHtml(tally) {
+// Build a {still:{num:{title,author,img}}, video:{…}} lookup from the Sheet so the admin
+// results can show a thumbnail + name + author instead of a bare entry number.
+async function entryMetaMap() {
+  const map = { still: {}, video: {} };
+  if (DEMO_MODE) return map;
+  try {
+    const rows = await fetchSheetRows();
+    for (const r of rows) {
+      if (!map[r.contest]) continue;
+      map[r.contest][r.num] = { title: r.title, author: r.author, img: r.image };
+    }
+  } catch (e) { console.warn("Admin entry meta:", e); }
+  return map;
+}
+
+function adminRowsHtml(tally, meta) {
   const medals = ["🥇", "🥈", "🥉"];
   const rows = Object.entries(tally)
     .map(([num, pts]) => ({ num: +num, pts }))
@@ -414,14 +433,50 @@ function adminRowsHtml(tally) {
     <table class="admin-table">
       <thead><tr><th></th><th>Entry</th><th>Points</th></tr></thead>
       <tbody>
-        ${rows.map((r, i) => `
+        ${rows.map((r, i) => {
+          const m = (meta && meta[r.num]) || {};
+          const thumb = m.img
+            ? `<img class="admin-thumb" src="${esc(m.img)}" alt="" loading="lazy" />`
+            : `<span class="admin-thumb admin-thumb-none">#${r.num}</span>`;
+          return `
           <tr class="${i === 0 ? "winner" : ""}">
             <td class="medal">${medals[i] || ""}</td>
-            <td>#${r.num}</td>
-            <td>${r.pts} pts</td>
-          </tr>`).join("")}
+            <td class="admin-entry">
+              ${thumb}
+              <span class="admin-entry-text">
+                <span class="admin-entry-title">${esc(m.title || "Untitled")}</span>
+                <span class="admin-entry-meta">#${r.num}${m.author ? ` · by ${esc(m.author)}` : ""}</span>
+              </span>
+            </td>
+            <td class="admin-pts">${r.pts} pts</td>
+          </tr>`;
+        }).join("")}
       </tbody>
     </table>`;
+}
+
+// Wipe every ballot and bump the round so phones can vote again. Destructive + irreversible;
+// needs Firestore rules that allow deleting ballots and writing config/flags.
+async function clearAllVotes(afterDone) {
+  if (DEMO_MODE) { toast("Demo mode — there are no live votes to clear."); return; }
+  if (!confirm("Delete ALL votes and start a fresh round?\n\nThis erases every ballot for both contests and lets phones vote again. It cannot be undone.")) return;
+  try {
+    const snap = await db.getDocs(db.collection(db.inst, "ballots"));
+    const docs = snap.docs;
+    for (let i = 0; i < docs.length; i += 400) {   // Firestore batches cap at 500 ops
+      const batch = db.writeBatch(db.inst);
+      docs.slice(i, i + 400).forEach((d) => batch.delete(d.ref));
+      await batch.commit();
+    }
+    const newGen = (voteGen || 0) + 1;
+    await db.setDoc(db.doc(db.inst, "config", "flags"), { gen: newGen }, { merge: true });
+    voteGen = newGen;
+    toast(`Cleared ${docs.length} ballot${docs.length === 1 ? "" : "s"} — new round is live! 🧹`);
+    if (afterDone) await afterDone();
+  } catch (e) {
+    console.error(e);
+    toast("Couldn't clear votes — check the Firestore rules (ballot delete + config write).");
+  }
 }
 
 async function renderAdminView() {
@@ -442,6 +497,10 @@ async function renderAdminView() {
         <button id="adminRefresh" class="admin-refresh">Refresh</button>
       </div>
       <div id="adminOut"></div>
+      <div class="admin-danger">
+        <button id="adminClear" class="admin-clear" type="button">🧹 Clear all votes &amp; start a new round</button>
+        <p class="admin-note">Erases every ballot and re-opens voting on every phone. Can't be undone.</p>
+      </div>
     </section>`;
 
   const renderResults = async () => {
@@ -449,17 +508,17 @@ async function renderAdminView() {
     const out = $("adminOut");
     meta.textContent = "Loading ballots...";
     try {
-      const results = await loadAdminResults();
+      const [results, entryMeta] = await Promise.all([loadAdminResults(), entryMetaMap()]);
       if (results.demo) {
         meta.textContent = "Demo mode";
         out.innerHTML = `<p class="admin-note">Paste your Firebase config into <b>firebase-config.js</b> and real ballots will show here.</p>`;
         return;
       }
-      meta.textContent = `Updated ${new Date().toLocaleTimeString()} · ${results.total} total ballots`;
+      meta.textContent = `Updated ${new Date().toLocaleTimeString()} · ${results.total} total ballots · round ${voteGen}`;
       out.innerHTML = ["still", "video"].map((c) => `
         <section class="score-card">
           <h3>${CONTESTS[c].name} <span>${results.counts[c]} ballots</span></h3>
-          ${adminRowsHtml(results.tallies[c])}
+          ${adminRowsHtml(results.tallies[c], entryMeta[c])}
         </section>`).join("");
     } catch (e) {
       console.error(e);
@@ -469,6 +528,7 @@ async function renderAdminView() {
   };
 
   $("adminRefresh").addEventListener("click", renderResults);
+  $("adminClear").addEventListener("click", () => clearAllVotes(renderResults));
   await renderResults();
 }
 
